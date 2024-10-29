@@ -1,0 +1,62 @@
+# www.theforage.com - Telstra Cyber Task 3
+# Custom Firewall Server Implementation
+
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import json
+
+HOST = "localhost"
+PORT = 8000
+
+# Function to send a 403 Forbidden response for blocked requests
+def deny_access(self):
+    self.send_error(403, "Request denied: Firewall rules triggered.")
+
+# Function to process incoming requests
+def process_request(self):
+    # Define suspicious headers related to the payload
+    malicious_headers = {
+        "suffix": "%>//",
+        "c1": "Runtime",
+        "c2": "<%",
+        "DNT": "1",
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+
+    # Check if the request is targeting the dangerous JSP file
+    if self.path == "/tomcatwar.jsp":
+        # Iterate through each key-value pair in the malicious headers
+        for header, value in malicious_headers.items():
+            # If the header matches a known malicious value, block the request
+            if header in self.headers and self.headers[header] == value:
+                deny_access(self)
+                return
+
+    # If the request is safe, send a success response
+    self.send_response(200)
+    self.send_header("Content-Type", "application/json")
+    self.end_headers()
+
+    # Prepare the JSON response
+    response = {"success": True}
+    self.wfile.write(json.dumps(response).encode('utf-8'))
+
+class FirewallRequestHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        process_request(self)
+
+    def do_POST(self):
+        process_request(self)
+
+if __name__ == "__main__":
+    httpd = HTTPServer((HOST, PORT), FirewallRequestHandler)
+    print("[+] Firewall Server is now active.")
+    print(f"[+] Listening on {HOST}:{PORT}...")
+
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        pass
+
+    httpd.server_close()
+    print("[+] Firewall Server has been shut down.")
+exit(0)
